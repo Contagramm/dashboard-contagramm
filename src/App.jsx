@@ -707,6 +707,22 @@ export default function App() {
       .sort((a, b) => safeNumber(b.inversion) - safeNumber(a.inversion))
   }, [channelAgg])
 
+  function sanitizeRowForSupabase(row) {
+    const sanitized = { ...row }
+    // PostgreSQL no acepta '' en columnas date/numeric; convertir a null
+    const dateFields = ['fechaInicioSemana', 'fechaFinSemana']
+    const numericFields = ['inversion', 'leads', 'clientesNuevos', 'numeroVentas', 'ingresos', 'año', 'mes', 'semanaDelMes']
+    for (const key of dateFields) {
+      if (sanitized[key] === '' || sanitized[key] === undefined) sanitized[key] = null
+    }
+    for (const key of numericFields) {
+      if (sanitized[key] === '' || sanitized[key] === undefined) sanitized[key] = null
+      else sanitized[key] = Number(sanitized[key]) || 0
+    }
+    if (sanitized.notas === '' || sanitized.notas === undefined) sanitized.notas = null
+    return sanitized
+  }
+
   function scheduleSaveRow(nextRow) {
     const id = nextRow.id
     if (!id) return
@@ -718,7 +734,7 @@ export default function App() {
       try {
         const { error: upsertError } = await supabase
           .from('weekly_rows')
-          .upsert(nextRow, { onConflict: 'id' })
+          .upsert(sanitizeRowForSupabase(nextRow), { onConflict: 'id' })
 
         if (upsertError) throw upsertError
       } catch {
@@ -738,7 +754,7 @@ export default function App() {
 
     supabase
       .from('weekly_rows')
-      .insert(newRow)
+      .insert(sanitizeRowForSupabase(newRow))
       .then(({ error: insertError }) => {
         if (insertError) setError('No se pudo guardar la nueva fila en Supabase.')
       })
