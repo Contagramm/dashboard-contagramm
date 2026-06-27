@@ -720,6 +720,10 @@ export default function App() {
       else sanitized[key] = Number(sanitized[key]) || 0
     }
     if (sanitized.notas === '' || sanitized.notas === undefined) sanitized.notas = null
+    
+    // Add a dummy 'row' value in case the database requires it
+    sanitized.row = sanitized.id || String(Date.now())
+
     return sanitized
   }
 
@@ -737,8 +741,8 @@ export default function App() {
           .upsert(sanitizeRowForSupabase(nextRow), { onConflict: 'id' })
 
         if (upsertError) throw upsertError
-      } catch {
-        setError('No se pudo guardar en Supabase. Verifica conexión/permisos.')
+      } catch (err) {
+        setError(`No se pudo guardar en Supabase. Detalle: ${err.message || 'Error desconocido'}`)
       }
     }, 250)
   }
@@ -756,7 +760,10 @@ export default function App() {
       .from('weekly_rows')
       .insert(sanitizeRowForSupabase(newRow))
       .then(({ error: insertError }) => {
-        if (insertError) setError('No se pudo guardar la nueva fila en Supabase.')
+        if (insertError) {
+          console.error("Supabase insert error:", insertError);
+          setError(`No se pudo guardar la nueva fila en Supabase. Detalle: ${insertError.message || insertError.details || JSON.stringify(insertError)}`)
+        }
       })
   }
 
